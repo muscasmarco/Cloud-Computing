@@ -7,21 +7,8 @@ from datetime import datetime, timedelta
 import json
 
 app = Flask(__name__)
-
-# The secrete key to encode the token for JWT
-app.config["SECRET_KEY"] = "thisiscool"
-
-db_pass = 'clc2020_nice_password'
-db_name = 'clc2020_sys_db'
-
-#db_URL = "mongodb+srv://Admin1:{}@myfirstcluster.l6ygq.mongodb.net/{}?retryWrites=true&w=majority".format(
-#    mongoDB_pass, database_name)
-
-db_URL = 'mongodb+srv://clc_db_admin:{}@clusterclc.sfbwf.mongodb.net/{}?retryWrites=true&w=majority'.format(db_pass, db_name)
-app.config["MONGODB_HOST"] = db_URL
-db = MongoEngine()
-db.init_app(app)
-
+app.config.from_pyfile('db_config.cfg')
+db = MongoEngine(app)
 
 # Define a collections for the users that can edit database
 class ad_users(db.Document):
