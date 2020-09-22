@@ -3,19 +3,21 @@ from flask_mongoengine import MongoEngine
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import jwt
-import datetime
-
+from datetime import datetime, timedelta
+import json
 
 app = Flask(__name__)
 
 # The secrete key to encode the token for JWT
 app.config["SECRET_KEY"] = "thisiscool"
 
-mongoDB_pass = "cloud2020"
-database_name = "Verification_sys"
-db_URL = "mongodb+srv://Admin1:{}@myfirstcluster.l6ygq.mongodb.net/{}?retryWrites=true&w=majority".format(
-    mongoDB_pass, database_name)
+db_pass = 'clc2020_nice_password'
+db_name = 'clc2020_sys_db'
 
+#db_URL = "mongodb+srv://Admin1:{}@myfirstcluster.l6ygq.mongodb.net/{}?retryWrites=true&w=majority".format(
+#    mongoDB_pass, database_name)
+
+db_URL = 'mongodb+srv://clc_db_admin:{}@clusterclc.sfbwf.mongodb.net/{}?retryWrites=true&w=majority'.format(db_pass, db_name)
 app.config["MONGODB_HOST"] = db_URL
 db = MongoEngine()
 db.init_app(app)
@@ -45,17 +47,22 @@ class serial_num(db.Document):
 
 
 # inserting data to our collection object
+'''
 serial_num.objects.insert([serial_num(sn_id=1, sn="456689234120", name="Headphone Bluetooth", date="23/04/2019"),
                            serial_num(sn_id=2, sn="729845013482", name="External disc", date="12/06/2018"),
                            serial_num(sn_id=3, sn="863299208534", name="Kindle", date="14/04/2018"),
                            serial_num(sn_id=4, sn="457873547585", name="Headphone Bluetooth", date="02/05/2019"),
                            serial_num(sn_id=5, sn="867394764648", name="Kindle", date="16/07/2018"),
                            serial_num(sn_id=6, sn="866689849920", name="Kindle", date="13/04/2018")])
-
+'''
 
 # Adding data to our ad_users collection object
-ad_users.objects.insert([ad_users(user_id=1, user_name="student1", user_pass="cloud2020")])
+#ad_users.objects.insert([ad_users(user_id=1, user_name="student1", user_pass="cloud2020")])
 
+@app.route('/create_user/', methods = ['GET'])
+def create_user():
+    ad_users.objects.insert([ad_users(user_id=1, user_name="student1", user_pass="cloud2020")])
+    return "User created"
 
 # Create a decoraotr to apply for the endpoints that require authentication
 def token_required(f):
@@ -104,6 +111,7 @@ def add_serialNum(current_user):
 
 @app.route("/login")
 def login():
+    print('User is trying to log in')
     auth = request.authorization
 
     if not auth or not auth.username or not auth.password:
@@ -117,12 +125,16 @@ def login():
 
     pass_true = ad_users.objects(user_pass = auth.password).first()
     if pass_true:
+
+        user_username = str(ad_users.user_name)
+        user_expire_session = '100000'
+
+        print('Login successful')
         token = jwt.encode(
-            {'username': ad_users.user_name, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)},
-            app.config['SECRET_KEY'])
+            {'username': user_username, 'exp': user_expire_session}, app.config['SECRET_KEY'])
+        
         token = token.decode('UTF-8')
-        #return jsonify({'token': token.decode('UTF-8')})
-        return jsonify(dict(token))
+        return jsonify({'token':token})
 
     return make_response('Could not verify2', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
 
