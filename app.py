@@ -5,126 +5,183 @@ from functools import wraps
 import jwt
 from datetime import datetime, timedelta
 import json
+from flask import render_template
 
 app = Flask(__name__)
 app.config.from_pyfile('db_config.cfg')
 db = MongoEngine(app)
 
-# Define a collections for the users that can edit database
-class ad_users(db.Document):
-    user_id = db.IntField()
-    user_name = db.StringField()
-    user_pass = db.StringField()
-
-
-# Define a serial_num collection
-class serial_num(db.Document):
-    sn_id = db.IntField()
-    sn = db.StringField()
-    name = db.StringField()
-    date = db.StringField()
+class User(db.Document):
+    _id = db.IntField(primary_key = True)
+    email = db.StringField(unique = True)
+    password = db.StringField() 
+    registered_serial_numbers = db.ListField(default = [])
 
     def to_json(self):
-        # convert this document to json
-        return {
-            "serial number": self.sn,
-            "product Type": self.name,
-            "production date": self.date
-        }
+        raw_json = {"email":self.email,
+                    "password":self.password,
+                    "registered_serial_numbers":self.registered_serial_numbers}
+        return raw_json
+
+class Product(db.Document):
+    product_id = db.IntField(primary_key = True)
+    name = db.StringField(required = True, max_length = 100)
+    image_url = db.StringField(required = False)
+
+    def to_json(self):
+        raw_json = {'product_id':self.product_id,
+                    'name':self.name,
+                    'image_url':self.image_url}
+        return raw_json
+
+class SerialNumber(db.Document):
+    value = db.StringField(required = True, unique = True, primary_key = True)
+    registration_date = db.StringField()
+    registration_user = db.IntField(required = True) # ID of the registering user
+    product = Product()
 
 
-# inserting data to our collection object
+    def to_json(self):
+        raw_json = {'value':self.value, 
+                    'registration_date':self.registration_date,
+                    'registration_user':self.registration_user,
+                    'product':self.registration_user
+                    }
+        return raw_json
+
+
+
+
+# -------------------------------------------- User API endpoints ---------------------------------- 
+
+
+@app.route('/api/user/register', methods = ['POST'])
+def register():
+
+    request_content = request.get_json()
+
+    try:
+
+        email = request_content['email']
+        password = request_content['password']
+        
+        User.objects.insert(User(email = email, password = password, registered_serial_numbers = []))
+    except Exception as e:
+        return jsonify({'code':400, 'message':str(e)})
+
+    return make_response('User registered successfully.', 200)
+
+
+@app.route('/api/user/', methods = ['GET'])
+def get_all_users():
+    return jsonify({'users':User.objects})
+
+@app.route('/api/user/<user_id>', methods = ['GET'])
+def get_user_by_id(user_id):
+    return jsonify(User.objects({'email':_id}))
+
+@app.route('/api/user/delete_all', methods = ['GET'])
+def delete_all_users():
+    User.drop_collection()
+    return jsonify({'users':User.objects})
+
+
+@app.route('/api/user/delete/', methods = ['POST'])
+def delete_user():
+    try:
+
+        content = request.get_json()
+        email = content['email']
+
+        User.objects(email = email).delete()
+
+    except Exception as e:
+        return jsonify({'code':400, 'message':str(e)})
+
+    return jsonify({'code':200, 'message':'ok'})
+        
+# -------------------------------     Serial number API endpoints ----------------------------------
 '''
-serial_num.objects.insert([serial_num(sn_id=1, sn="456689234120", name="Headphone Bluetooth", date="23/04/2019"),
-                           serial_num(sn_id=2, sn="729845013482", name="External disc", date="12/06/2018"),
-                           serial_num(sn_id=3, sn="863299208534", name="Kindle", date="14/04/2018"),
-                           serial_num(sn_id=4, sn="457873547585", name="Headphone Bluetooth", date="02/05/2019"),
-                           serial_num(sn_id=5, sn="867394764648", name="Kindle", date="16/07/2018"),
-                           serial_num(sn_id=6, sn="866689849920", name="Kindle", date="13/04/2018")])
-'''
-
-# Adding data to our ad_users collection object
-#ad_users.objects.insert([ad_users(user_id=1, user_name="student1", user_pass="cloud2020")])
-
-@app.route('/create_user/', methods = ['GET'])
-def create_user():
-    ad_users.objects.insert([ad_users(user_id=1, user_name="student1", user_pass="cloud2020")])
-    return "User created"
-
-# Create a decoraotr to apply for the endpoints that require authentication
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-
-        if 'x-access-token' in request.headers:
-            token = request.headers['x-access-token']
-
-        if not token:
-            return jsonify({'message' : 'Token is missing!'}), 401
-
-        try:
-            data = jwt.decode(token, app.config['SECRET_KEY'])
-            current_user = ad_users.objects(user_id=data['user_id']).first()
-        except:
-            return jsonify({'message' : 'Token is invalid!'}), 401
-
-        return f(current_user, *args, **kwargs)
-
-    return decorated
-
-
-#The endpoint to see the info about a serial number
-@app.route('/api/<sn>', methods=["GET"])
+@app.route('/api/serial_number/<sn>', methods=["GET"])
 def search_sn(sn):
-    serial_object = serial_num.objects(sn=sn).first()
+    serial_object = SerialNumber.objects(value = sn).first()
     if serial_object:
         return make_response(jsonify(serial_object.to_json()), 200)
     else:
         return make_response("", 404)
 
+@app.route('/api/add_serial_number/', methods = ['POST'])
+def add_serial_number(): # Requires a JSON to be sent
+    
+    try:
+        content = request.get_json()
+   
+        value = content['value']
+        registration_date = content['registration_date']
+        registration_user = content['registration_user']
+        product = content['product']
+    
+        SerialNumber.objects.insert(SerialNumber(value = value,
+                                             registration_date = registration_date,
+                                             registration_user = registration_user,
+                                             product = product))
 
-# The endpoint to add serial number to the serial_num database
-# This route need authentication and only predefined admins can access it after login
-@app.route("/api/addSN", methods = ["POST"])
-@token_required
-def add_serialNum(current_user):
-    content = request.json
-    serial_num.objects.insert([serial_num(sn_id=content.sn_id, sn=content.sn,
-                                          name=content.name, date=content.date)])
-
-    return make_response("A new serial number has been populated",201)
-
-
-@app.route("/login")
-def login():
-    print('User is trying to log in')
-    auth = request.authorization
-
-    if not auth or not auth.username or not auth.password:
-        return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
-
-    User = ad_users.objects(user_name = auth.username).first()
-
-
-    if not User:
-        return make_response('Could not verify1', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
-
-    pass_true = ad_users.objects(user_pass = auth.password).first()
-    if pass_true:
-
-        user_username = str(ad_users.user_name)
-        user_expire_session = '100000'
-
-        print('Login successful')
-        token = jwt.encode(
-            {'username': user_username, 'exp': user_expire_session}, app.config['SECRET_KEY'])
+    except Exception as e:
         
-        token = token.decode('UTF-8')
-        return jsonify({'token':token})
+        return jsonify({'code':400, 'message':str(e)})
 
-    return make_response('Could not verify2', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+    return jsonify({'code':200, 'message':'ok'})
+
+'''    
+# -------------------------------------------------------------- Products API endpoints ------------------------------------------------------------------- 
+'''
+@app.route('/api/products/', methods = ['GET'])
+def get_all_products():
+    return jsonify(Product.objects)
+
+
+@app.route('/api/products/<product_id>', methods = ['POST'])
+def get_product_by_id(product_id):
+    product_object = Product.objects(product_id == product_id).first
+
+    if product_object:
+        return jsonify(product_object)
+    
+    return jsonify({'code':404, 'message':"Product not found."})
+
+@app.route('/api/product/insert', methods = ['POST'])
+def insert_new_product():
+    try:
+        content = request.get_json()
+
+        product_id = content['product_id']
+        name = content['name']
+        image_url = content['image_url']
+
+        Product.objects.insert(Product(product_id = product_id, name = name, image_url = image_url))
+        
+        return jsonify({'code':200, message:'ok'})
+
+
+    except Exception as e:
+        return jsonify({'code':400, 'message':str(e)})
+    
+@app.route('/api/product/delete/<product_id>')
+def delete_product(product_id):
+    try:
+        product_object = Product.objects(product_id == product_id).first()
+        Product.objects.delete_one(product_object)
+    except Exception as e:
+        return jsonify({'code':400, 'message':str(e)})
+
+    return jsonify({'code':200})
+
+'''
+
+
+
+
 
 
 if __name__ == '__main__':
-    app.run(debug='True')
+    app.run(debug = True)
