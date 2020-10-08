@@ -108,7 +108,7 @@ def search_sn(sn):
     if serial_object:
         return make_response(jsonify(serial_object.to_json()), 200)
     else:
-        return make_response("", 404)
+        return make_response('', 404)
 
 @app.route('/api/add_serial_number/', methods = ['POST'])
 def add_serial_number(): # Requires a JSON to be sent
@@ -134,6 +134,7 @@ def add_serial_number(): # Requires a JSON to be sent
 
 '''    
 # -------------------------------------------------------------- Products API endpoints ------------------------------------------------------------------- 
+
 '''
 @app.route('/api/products/', methods = ['GET'])
 def get_all_products():
@@ -177,11 +178,9 @@ def delete_product(product_id):
     return jsonify({'code':200})
 
 '''
-
-
-
-
-
-
 if __name__ == '__main__':
-    app.run(debug = True)
+    app.run(host="127.0.0.1", port=80, debug=True)
+
+
+
+
