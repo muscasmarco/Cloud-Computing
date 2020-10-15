@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+    name: "clcapicluster-f51f"
+    labels:
+        app: "clcapicluster-f51f"
+    annotations:
+        kubernetes.io/ingress.class: addon-http-application-routing
+spec:
+    rules:
+        - host: clc-api-clustera57f-clcapicluster-f51f.6685bc1f3de84b4581f7.germanywestcentral.aksapp.io
+          http:
+            paths:
+            - path: /
+              backend:
+                serviceName: "clcapicluster-f51f"
+                servicePort: 80
