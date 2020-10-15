@@ -1,0 +1,51 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: clccontainerregistry.azurecr.io
+        username: ${{ secrets.acr_clccontainerregistry_username }}
+        password: ${{ secrets.acr_clccontainerregistry_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/backend" -f  "backend/Dockerfile" -t clccontainerregistry.azurecr.io/clcapicluster:${{ github.sha }}
+        docker push clccontainerregistry.azurecr.io/clcapicluster:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_clcapicluster_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep clc-api-clustera57f | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace clc-api-clustera57f`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: clc-api-clustera57f
+        container-registry-url: clccontainerregistry.azurecr.io
+        container-registry-username: ${{ secrets.acr_clccontainerregistry_username }}
+        container-registry-password: ${{ secrets.acr_clccontainerregistry_password }}
+        secret-name: clcapiclustedockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: clc-api-clustera57f
+        manifests: |
+          manifests/deployment.yml
+          manifests/service.yml
+          manifests/ingress.yml
+        images: |
+          clccontainerregistry.azurecr.io/clcapicluster:${{ github.sha }}
+        imagepullsecrets: |
+          clcapiclustedockerauth
