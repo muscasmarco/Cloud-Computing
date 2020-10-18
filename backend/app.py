@@ -74,13 +74,13 @@ def admin_token_required(f):
 
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'])
-            current_user = ad_users.objects(user_id=data['user_id']).first()
-        except:
-            return jsonify({'message': 'Token is invalid!'}), 401
+            current_user = User.objects(public_id=data['public_id']).first()
+        except Exception as e:
+            return jsonify({'message': 'Token is invalid!', 'exception':str(e)}), 401
 
         if current_user.to_json()["if_admin"]:
 
-            return f(current_user, *args, **kwargs)
+            return f(*args, **kwargs)
         else:
             return jsonify({'message': "You can't access this page"}), 401
 
@@ -88,7 +88,7 @@ def admin_token_required(f):
 
 
 # Create a decorator to apply for the endpoints that require user authentication
-def token_required(f):
+def login_token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
@@ -101,11 +101,11 @@ def token_required(f):
 
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'])
-            current_user = ad_users.objects(user_id=data['user_id']).first()
+            current_user = User.objects(public_id = data['public_id']).first()
         except:
             return jsonify({'message': 'Token is invalid!'}), 401
 
-        return f(current_user, *args, **kwargs)
+        return f(*args, **kwargs)
 
     return decorated
 
@@ -115,20 +115,28 @@ def token_required(f):
 
 @app.route('/api/user/register', methods=['POST'])
 def register():
-    request_content = request.get_json()
 
+    request_content = request.get_json()
+    return jsonify({'content':str(request_content)})
     try:
 
         email = request_content['email']
         password = request_content['password']
+        
+        if 'admin_key' in request_content.keys():        
+            admin_key = request_content['admin_key']
 
-        User.objects.insert(User(public_id=str(uuid.uuid4()), email=email,
-                                 password=password, registered_serial_numbers=[]))
+            if admin_key == app.config['ADMIN_REGISTRATION_KEY']:
+                User.objects.insert(User(public_id=str(uuid.uuid4()), email=email, password=password, 
+                                        registered_serial_numbers=[], if_admin = True))
+
+        else:
+            User.objects.insert(User(public_id=str(uuid.uuid4()), email=email, password=password, registered_serial_numbers=[]))
+
     except Exception as e:
         return jsonify({'code': 400, 'message': str(e)})
 
     return make_response('User registered successfully.', 201)
-
 
 @app.route('/api/user/', methods=['GET'])
 @admin_token_required
@@ -197,6 +205,7 @@ def add_serial_number(): # Requires a JSON to be sent
 # -------------------------------------------------------------- Products API endpoints -------------------------------------------------------------------
 
 '''
+
 @app.route('/api/products/', methods = ['GET'])
 def get_all_products():
     return jsonify(Product.objects)
@@ -233,9 +242,10 @@ def delete_product(product_id):
 
 # -------------------------------   Login endpoint   ----------------------------------
 
-@app.route("/api/user/login", methods = ['POST'])
+
+@app.route('/api/user/login/', methods = ['POST'])
 def login():
-    print('User is trying to log in')
+
     auth = request.get_json()['authorization']
     
     if not auth:
@@ -253,7 +263,7 @@ def login():
         return make_response('Could not verify1', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
 
     if password == user.password:
-        user_expire_session = '100000'
+        user_expire_session = datetime.utcnow() + timedelta(minutes = 4)
 
         print('Login successful')
         token = jwt.encode(
