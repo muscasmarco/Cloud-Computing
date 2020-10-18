@@ -6,6 +6,7 @@ import jwt
 from datetime import datetime, timedelta
 import json
 from flask import render_template
+import uuid
 
 app = Flask(__name__)
 app.config.from_pyfile('db_config.cfg')
@@ -13,14 +14,19 @@ db = MongoEngine(app)
 
 class User(db.Document):
     _id = db.IntField(primary_key = True)
+    public_id = db.StringField(unique = True)
     email = db.StringField(unique = True)
     password = db.StringField() 
     registered_serial_numbers = db.ListField(default = [])
+    if_admin = db.BooleanField(default = False)
+
 
     def to_json(self):
-        raw_json = {"email":self.email,
+        raw_json = {"public_id":self.public_id,
+                    "email":self.email,
                     "password":self.password,
-                    "registered_serial_numbers":self.registered_serial_numbers}
+                    "registered_serial_numbers":self.registered_serial_numbers,
+                    "if_admin":self.if_admin}
         return raw_json
 
 class Product(db.Document):
@@ -50,6 +56,33 @@ class SerialNumber(db.Document):
         return raw_json
 
 
+# ------------------------------------------- Decorators -----------------------------------------
+# Create a decorator to apply for the endpoints that require authentication
+def admin_token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+
+        if 'x-access-token' in request.headers:
+            token = request.headers['x-access-token']
+
+        if not token:
+            return jsonify({'message': 'Token is missing!'}), 401
+
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'])
+            current_user = ad_users.objects(user_id=data['user_id']).first()
+        except:
+            return jsonify({'message': 'Token is invalid!'}), 401
+
+        if current_user.to_json()["if_admin"]:
+
+            return f(current_user, *args, **kwargs)
+        else :
+            return jsonify({'message': "You can't access this page"}), 401
+
+    return decorated
+
 
 
 # -------------------------------------------- User API endpoints ---------------------------------- 
@@ -65,7 +98,8 @@ def register():
         email = request_content['email']
         password = request_content['password']
         
-        User.objects.insert(User(email = email, password = password, registered_serial_numbers = []))
+        User.objects.insert(User(public_id = str(uuid.uuid4()), email = email,
+                                 password = password, registered_serial_numbers = []))
     except Exception as e:
         return jsonify({'code':400, 'message':str(e)})
 
@@ -78,7 +112,7 @@ def get_all_users():
 
 @app.route('/api/user/<user_id>', methods = ['GET'])
 def get_user_by_id(user_id):
-    return jsonify(User.objects({'email':_id}))
+    return jsonify(User.objects({'email':user_id}))
 
 @app.route('/api/user/delete_all', methods = ['GET'])
 def delete_all_users():
@@ -179,13 +213,53 @@ def delete_product(product_id):
 
 '''
 
+# -------------------------------   Login endpoint   ----------------------------------
+
+
+@app.route("/login")
+def login():
+    print('User is trying to log in')
+    auth = request.authorization
+
+    if not auth or not auth.username or not auth.password:
+        return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+
+    user = User.objects(email=auth.username).first()
+
+    if not user:
+        return make_response('Could not verify1', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+
+    pass_true = User.objects(password=auth.password).first()
+    if pass_true:
+        username = str(User.email)
+        user_expire_session = '100000'
+
+        print('Login successful')
+        token = jwt.encode(
+            {'username': username, 'exp': user_expire_session}, app.config['SECRET_KEY'])
+
+        token = token.decode('UTF-8')
+        return jsonify({'token': token})
+
+    return make_response('Could not verify2', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+
+
+
+
+
+
 @app.route("/", methods = ['GET'])
 def testing_homepage():
     return "Your container is working"
 
 if __name__ == '__main__':
+<<<<<<< Updated upstream
     app.run(host = "127.0.0.1", port = 5000, debug=True)
 
+=======
+    app.run(debug=True)
+>>>>>>> Stashed changes
 
+#"host = "0.0.0.0", port = 80, "
 
 
