@@ -220,27 +220,31 @@ def delete_product(product_id):
 # -------------------------------   Login endpoint   ----------------------------------
 
 
-@app.route("/login")
+@app.route("/api/user/login", methods = ['POST'])
 def login():
     print('User is trying to log in')
-    auth = request.authorization
+    auth = request.get_json()['authorization']
+    
+    if not auth:
+        return make_response('Auth missing', 401, {'WWW-Authenticate':'Basic realm="Login required!'})
 
-    if not auth or not auth.username or not auth.password:
+    if not auth or ('email' not in auth.keys()) or ('password' not in auth.keys()):
         return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
 
-    user = User.objects(email=auth.username).first()
+    email = auth['email']
+    password = auth['password']
+
+    user = User.objects(email=email).first()
 
     if not user:
         return make_response('Could not verify1', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
 
-    pass_true = User.objects(password=auth.password).first()
-    if pass_true:
-        username = str(User.email)
+    if password == user.password:
         user_expire_session = '100000'
 
         print('Login successful')
         token = jwt.encode(
-            {'username': username, 'exp': user_expire_session}, app.config['SECRET_KEY'])
+            {'public_id': user.public_id, 'exp': user_expire_session}, app.config['SECRET_KEY'])
 
         token = token.decode('UTF-8')
         return jsonify({'token': token})
