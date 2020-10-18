@@ -234,6 +234,7 @@ def delete_product(product_id):
 # -------------------------------   Login endpoint   ----------------------------------
 
 
+<<<<<<< HEAD
 @app.route("/api/user/login", methods=['POST'])
 def login():
     print('User is trying to log in')
@@ -242,6 +243,16 @@ def login():
     if not auth:
         return make_response('Auth missing', 401, {'WWW-Authenticate': 'Basic realm="Login required!'})
 
+=======
+@app.route("/api/user/login", methods = ['POST'])
+def login():
+    print('User is trying to log in')
+    auth = request.get_json()['authorization']
+    
+    if not auth:
+        return make_response('Auth missing', 401, {'WWW-Authenticate':'Basic realm="Login required!'})
+
+>>>>>>> 6ecae6cdea0a8d963dd0a9392efb3a3b75b4afc9
     if not auth or ('email' not in auth.keys()) or ('password' not in auth.keys()):
         return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
 
