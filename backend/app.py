@@ -30,7 +30,8 @@ class User(db.Document):
         return raw_json
 
 class Product(db.Document):
-    product_id = db.IntField(primary_key = True)
+    _id = db.IntField(primary_key = True)
+    product_id = db.StringField(required = True, unique = True)
     name = db.StringField(required = True, max_length = 100)
     image_url = db.StringField(required = False)
 
@@ -41,9 +42,11 @@ class Product(db.Document):
         return raw_json
 
 class SerialNumber(db.Document):
-    value = db.StringField(required = True, unique = True, primary_key = True)
+
+    _id = db.StringField(primary_key = True)
+    value = db.StringField(required = True, unique = True)
     registration_date = db.StringField()
-    registration_user = db.IntField(required = True) # ID of the registering user
+    registration_user = db.StringField() # ID of the registering user
     product = Product()
 
 
@@ -103,16 +106,16 @@ def register():
     except Exception as e:
         return jsonify({'code':400, 'message':str(e)})
 
-    return make_response('User registered successfully.', 200)
+    return make_response('User registered successfully.', 201)
 
 
 @app.route('/api/user/', methods = ['GET'])
 def get_all_users():
     return jsonify({'users':User.objects})
 
-@app.route('/api/user/<user_id>', methods = ['GET'])
-def get_user_by_id(user_id):
-    return jsonify(User.objects({'email':user_id}))
+@app.route('/api/user/<public_id>', methods = ['GET'])
+def get_user_by_id(public_id):
+    return jsonify({'user':User.objects(public_id = public_id).first()})
 
 @app.route('/api/user/delete_all', methods = ['GET'])
 def delete_all_users():
@@ -136,6 +139,7 @@ def delete_user():
         
 # -------------------------------     Serial number API endpoints ----------------------------------
 '''
+
 @app.route('/api/serial_number/<sn>', methods=["GET"])
 def search_sn(sn):
     serial_object = SerialNumber.objects(value = sn).first()
@@ -253,13 +257,6 @@ def testing_homepage():
     return "Your container is working"
 
 if __name__ == '__main__':
-<<<<<<< Updated upstream
-    app.run(host = "127.0.0.1", port = 5000, debug=True)
-
-=======
-    app.run(debug=True)
->>>>>>> Stashed changes
-
-#"host = "0.0.0.0", port = 80, "
-
+    #app.run(host = "0.0.0.0", port = 80, debug = False)
+    app.run(host = "127.0.0.1", port = 5000, debug = True)
 
