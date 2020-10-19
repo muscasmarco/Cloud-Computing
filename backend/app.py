@@ -45,16 +45,16 @@ class Product(db.Document):
 
 class SerialNumber(db.Document):
     _id = db.StringField(primary_key=True)
-    value = db.StringField(required=True, unique=True)
+    value = db.StringField(required=True, unique=False)
     registration_date = db.StringField()
     registration_user = db.StringField()  # ID of the registering user
-    product = Product()
+    product_id = db.StringField(required = True)
 
     def to_json(self):
         raw_json = {'value': self.value,
                     'registration_date': self.registration_date,
                     'registration_user': self.registration_user,
-                    'product': self.registration_user
+                    'product_id': self.product_id
                     }
         return raw_json
 
@@ -139,7 +139,6 @@ def register():
     return make_response('User registered successfully.', 201)
 
 @app.route('/api/user/', methods=['GET'])
-@admin_token_required
 def get_all_users():
     return jsonify({'users': User.objects})
 
@@ -172,9 +171,51 @@ def delete_user():
 
     return jsonify({'code': 200, 'message': 'ok'})
 
+@app.route('/api/user/bulk/add', methods = ['POST'])
+def bulk_add_users():
+    
+    try:
+        list_of_user = request.get_json()
+        user_list = []
+
+        for content in list_of_user:
+            
+            email = content['email']
+            password = content['password']
+
+            new_user = User(public_id=str(uuid.uuid4()), email=email, password=password, registered_serial_numbers=[])
+            user_list.append(new_user)
+        User.objects.insert(user_list)
+
+    except Exception as e:
+        print(str(e))
+        return make_response(str(e), 400)
+
+    return jsonify({'code':200, 'message':'ok'})
+
+
+
+
+
+
+
+
+
+
+
+
 
 # -------------------------------     Serial number API endpoints ----------------------------------
-'''
+
+@app.route('/api/serial_number/', methods = ['GET'])
+def get_all_serial_numbers():
+    return jsonify({'serial_numbers':SerialNumber.objects[:1000]})
+
+@app.route('/api/serial_number/delete', methods = ['GET'])
+def delete_all_serial_numbers():
+    SerialNumber.drop_collection()
+    return jsonify({'serial_numbers':SerialNumber.objects})
+
 @app.route('/api/serial_number/<sn>', methods=["GET"])
 def search_sn(sn):
     serial_object = SerialNumber.objects(value = sn).first()
@@ -182,7 +223,8 @@ def search_sn(sn):
         return make_response(jsonify(serial_object.to_json()), 200)
     else:
         return make_response('', 404)
-@app.route('/api/add_serial_number/', methods = ['POST'])
+
+@app.route('/api/serial_number/add', methods = ['POST'])
 def add_serial_number(): # Requires a JSON to be sent
 
     try:
@@ -191,32 +233,112 @@ def add_serial_number(): # Requires a JSON to be sent
         value = content['value']
         registration_date = content['registration_date']
         registration_user = content['registration_user']
-        product = content['product']
+        product_id = content['product_id']
 
         SerialNumber.objects.insert(SerialNumber(value = value,
                                              registration_date = registration_date,
                                              registration_user = registration_user,
-                                             product = product))
+                                             product_id = product_id))
     except Exception as e:
+        return make_response(str(e), 400)
 
-        return jsonify({'code':400, 'message':str(e)})
     return jsonify({'code':200, 'message':'ok'})
-'''
+
+@app.route('/api/serial_number/bulk/add', methods = ['POST'])
+def bulk_add_serial_number():
+    
+    try:
+        list_of_sn = request.get_json()
+        product_list = []
+
+        for content in list_of_sn:
+            
+
+            value = content['value']
+            registration_date = content['registration_date']
+            registration_user = content['registration_user']
+            product_id = content['product_id']
+
+            new_sn = SerialNumber(value = value, registration_date = registration_date,registration_user = registration_user,product_id = product_id)
+            product_list.append(new_sn)
+
+        SerialNumber.objects.insert(product_list)
+
+
+    except Exception as e:
+        print(str(e))
+        return make_response(str(e), 400)
+
+    return jsonify({'code':200, 'message':'ok'})
+
+@app.route('/api/serial_number/register/', methods = ['POST'])
+@login_token_required
+def register_serial_number_to_user():
+        
+    token = None
+
+    if 'x-access-token' not in request.headers:
+        return jsonify({'message': 'Token is missing!'})
+
+    try:
+        token = request.headers['x-access-token']
+        sn_raw = request.get_json()['serial_number']
+
+        product_id = sn_raw[:11]
+        serial_number = sn_raw[11:]
+
+        data = jwt.decode(token, app.config['SECRET_KEY'])
+        
+        sn_object = SerialNumber.objects(product_id = product_id,value = serial_number).first() 
+
+        if sn_object == None:
+            return jsonify({'message':'The serial number seems to not be valid'})
+
+        if sn_object['registration_user'] != "":
+            #The serial number has already been registered. Let's check from whom.
+            if sn_object['registration_user'] == data['public_id']:
+                # The user has already registered this product serial number.            
+                return jsonify({'message':'You have already registered this product', 'serial_number':sn_object})
+            else:
+                return jsonify({'message':'Someone else has already activated this product!'})
+
+        else:
+            # The serial number is ready to be registered
+            user_id = data['public_id']
+            registration_date = datetime.today().strftime('%Y-%m-%d')
+            
+            sn_object.update(registration_user = user_id)
+            sn_object.update(registration_date = registration_date)
+
+
+            return jsonify({'message':'Your product has been registered successfully'})
+        #current_user = User.objects(public_id = data['public_id']).first()
+        #serial_number = SerialNumber.objects(value = sn_to_register).first()
+
+    except Exception as e:
+        return jsonify({'message': 'Token is invalid!'})
+
+    return jsonify({'message':'Unexpected error'})
+
+    
+
 # -------------------------------------------------------------- Products API endpoints -------------------------------------------------------------------
 
-'''
 
-@app.route('/api/products/', methods = ['GET'])
+
+@app.route('/api/product/', methods = ['GET'])
 def get_all_products():
     return jsonify(Product.objects)
-@app.route('/api/products/<product_id>', methods = ['POST'])
+
+@app.route('/api/product/<product_id>', methods = ['POST'])
 def get_product_by_id(product_id):
     product_object = Product.objects(product_id == product_id).first
     if product_object:
         return jsonify(product_object)
 
     return jsonify({'code':404, 'message':"Product not found."})
-@app.route('/api/product/insert', methods = ['POST'])
+
+@app.route('/api/product/add', methods = ['POST'])
 def insert_new_product():
     try:
         content = request.get_json()
@@ -229,6 +351,12 @@ def insert_new_product():
     except Exception as e:
         return jsonify({'code':400, 'message':str(e)})
 
+
+@app.route('/api/product/delete/')
+def delete_all_products():
+    Product.drop_collection()
+    return jsonify({'products':Product.objects})
+
 @app.route('/api/product/delete/<product_id>')
 def delete_product(product_id):
     try:
@@ -237,7 +365,7 @@ def delete_product(product_id):
     except Exception as e:
         return jsonify({'code':400, 'message':str(e)})
     return jsonify({'code':200})
-'''
+
 
 
 # -------------------------------   Login endpoint   ----------------------------------
@@ -263,7 +391,7 @@ def login():
         return make_response('Could not verify1', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
 
     if password == user.password:
-        user_expire_session = datetime.utcnow() + timedelta(minutes = 4)
+        user_expire_session = datetime.utcnow() + timedelta(minutes = 15)
 
         print('Login successful')
         token = jwt.encode(
