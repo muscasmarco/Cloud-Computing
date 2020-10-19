@@ -208,15 +208,18 @@ def bulk_add_users():
 # -------------------------------     Serial number API endpoints ----------------------------------
 
 @app.route('/api/serial_number/', methods = ['GET'])
+@admin_token_required
 def get_all_serial_numbers():
     return jsonify({'serial_numbers':SerialNumber.objects[:1000]})
 
 @app.route('/api/serial_number/delete', methods = ['GET'])
+@admin_token_required
 def delete_all_serial_numbers():
     SerialNumber.drop_collection()
     return jsonify({'serial_numbers':SerialNumber.objects})
 
 @app.route('/api/serial_number/<sn>', methods=["GET"])
+@login_token_required
 def search_sn(sn):
     serial_object = SerialNumber.objects(value = sn).first()
     if serial_object:
@@ -225,6 +228,7 @@ def search_sn(sn):
         return make_response('', 404)
 
 @app.route('/api/serial_number/add', methods = ['POST'])
+@admin_token_required
 def add_serial_number(): # Requires a JSON to be sent
 
     try:
@@ -245,6 +249,7 @@ def add_serial_number(): # Requires a JSON to be sent
     return jsonify({'code':200, 'message':'ok'})
 
 @app.route('/api/serial_number/bulk/add', methods = ['POST'])
+@admin_token_required
 def bulk_add_serial_number():
     
     try:
@@ -327,18 +332,21 @@ def register_serial_number_to_user():
 
 
 @app.route('/api/product/', methods = ['GET'])
+@admin_token_required
 def get_all_products():
     return jsonify(Product.objects)
 
-@app.route('/api/product/<product_id>', methods = ['POST'])
+@app.route('/api/product/<product_id>', methods = ['GET'])
+@login_token_required
 def get_product_by_id(product_id):
-    product_object = Product.objects(product_id == product_id).first
+    product_object = Product.objects(product_id = product_id).first()
     if product_object:
-        return jsonify(product_object)
+        return make_response(jsonify(product_object.to_json()), 200)
 
     return jsonify({'code':404, 'message':"Product not found."})
 
 @app.route('/api/product/add', methods = ['POST'])
+@admin_token_required
 def insert_new_product():
     try:
         content = request.get_json()
@@ -347,21 +355,24 @@ def insert_new_product():
         image_url = content['image_url']
         Product.objects.insert(Product(product_id = product_id, name = name, image_url = image_url))
 
-        return jsonify({'code':200, message:'ok'})
+        return jsonify({'code':200, 'message':'ok'})
     except Exception as e:
         return jsonify({'code':400, 'message':str(e)})
 
 
 @app.route('/api/product/delete/')
+@admin_token_required
 def delete_all_products():
     Product.drop_collection()
     return jsonify({'products':Product.objects})
 
 @app.route('/api/product/delete/<product_id>')
+@admin_token_required
 def delete_product(product_id):
     try:
-        product_object = Product.objects(product_id == product_id).first()
-        Product.objects.delete_one(product_object)
+        Product.objects(product_id = product_id).delete()
+
+
     except Exception as e:
         return jsonify({'code':400, 'message':str(e)})
     return jsonify({'code':200})
