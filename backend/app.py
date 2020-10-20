@@ -249,7 +249,6 @@ def add_serial_number(): # Requires a JSON to be sent
     return jsonify({'code':200, 'message':'ok'})
 
 @app.route('/api/serial_number/bulk/add', methods = ['POST'])
-@admin_token_required
 def bulk_add_serial_number():
     
     try:
@@ -373,7 +372,6 @@ def get_product_by_id(product_id):
     return jsonify({'code':404, 'message':"Product not found."})
 
 @app.route('/api/product/add', methods = ['POST'])
-@admin_token_required
 def insert_new_product():
     try:
         content = request.get_json()
