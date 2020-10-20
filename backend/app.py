@@ -13,22 +13,6 @@ app.config.from_pyfile('db_config.cfg')
 db = MongoEngine(app)
 
 
-class User(db.Document):
-    _id = db.IntField(primary_key=True)
-    public_id = db.StringField(unique=True)
-    email = db.StringField(unique=True)
-    password = db.StringField()
-    registered_serial_numbers = db.ListField(default=[])
-    if_admin = db.BooleanField(default=False)
-
-    def to_json(self):
-        raw_json = {"public_id": self.public_id,
-                    "email": self.email,
-                    "password": self.password,
-                    "registered_serial_numbers": self.registered_serial_numbers,
-                    "if_admin": self.if_admin}
-        return raw_json
-
 
 class Product(db.Document):
     _id = db.IntField(primary_key=True)
@@ -56,6 +40,23 @@ class SerialNumber(db.Document):
                     'registration_user': self.registration_user,
                     'product_id': self.product_id
                     }
+        return raw_json
+
+
+class User(db.Document):
+    _id = db.IntField(primary_key=True)
+    public_id = db.StringField(unique=True)
+    email = db.StringField(unique=True)
+    password = db.StringField()
+    registered_serial_numbers = db.ListField(SerialNumber, default=[])
+    if_admin = db.BooleanField(default=False)
+
+    def to_json(self):
+        raw_json = {"public_id": self.public_id,
+                    "email": self.email,
+                    "password": self.password,
+                    "registered_serial_numbers": self.registered_serial_numbers,
+                    "if_admin": self.if_admin}
         return raw_json
 
 
@@ -298,8 +299,11 @@ def register_serial_number_to_user():
 
         if sn_object == None:
             return jsonify({'message':'The serial number seems to not be valid'})
+        
+        #print("SN Object registration user: ", sn_object['registration_user'], " | Length: ", len(sn_object['registration_user']))        
 
-        if sn_object['registration_user'] != "":
+
+        if len(sn_object['registration_user']) != 0:
             #The serial number has already been registered. Let's check from whom.
             if sn_object['registration_user'] == data['public_id']:
                 # The user has already registered this product serial number.            
@@ -308,20 +312,32 @@ def register_serial_number_to_user():
                 return jsonify({'message':'Someone else has already activated this product!'})
 
         else:
-            # The serial number is ready to be registered
-            user_id = data['public_id']
-            registration_date = datetime.today().strftime('%Y-%m-%d')
+
+            try:
+                # The serial number is ready to be registered
+                user_id = data['public_id']
+                registration_date = datetime.today().strftime('%Y-%m-%d')
             
-            sn_object.update(registration_user = user_id)
-            sn_object.update(registration_date = registration_date)
+                print('Adding the serial number to the user data')
+                user = User.objects(public_id = user_id).first()
+                user.registered_serial_numbers = user.registered_serial_numbers + [sn_object.value]
+                print('About to update...')
+                user.save()
+                #sn_object.update(registration_user = user_id)
+                #sn_object.update(registration_date = registration_date)
+                
+                print('Done updating.')
 
+            except Exception as e:
+                return jsonify({'Exception':str(e)})
 
+            
             return jsonify({'message':'Your product has been registered successfully'})
         #current_user = User.objects(public_id = data['public_id']).first()
         #serial_number = SerialNumber.objects(value = sn_to_register).first()
 
     except Exception as e:
-        return jsonify({'message': 'Token is invalid!'})
+        return jsonify({'message': 'Token is invalid!', 'exception':str(e)})
 
     return jsonify({'message':'Unexpected error'})
 
@@ -377,11 +393,6 @@ def delete_product(product_id):
         return jsonify({'code':400, 'message':str(e)})
     return jsonify({'code':200})
 
-
-
-# -------------------------------   Login endpoint   ----------------------------------
-
-
 @app.route('/api/user/login/', methods = ['POST'])
 def login():
 
@@ -402,7 +413,7 @@ def login():
         return make_response('Could not verify1', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
 
     if password == user.password:
-        user_expire_session = datetime.utcnow() + timedelta(minutes = 15)
+        user_expire_session = datetime.utcnow() + timedelta(minutes = 120)
 
         print('Login successful')
         token = jwt.encode(

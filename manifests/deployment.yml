@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: "clcapicluster-f51f"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: "clcapicluster-f51f"
+  template:
+    metadata:
+      labels:
+        app: "clcapicluster-f51f"
+    spec:
+      containers:
+        - name: "clcapicluster-f51f"
+          image: "clccontainerregistry.azurecr.io/clcapicluster"
+          ports:
+          - containerPort: 80
