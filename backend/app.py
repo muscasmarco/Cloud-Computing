@@ -48,7 +48,7 @@ class User(db.Document):
     public_id = db.StringField(unique=True)
     email = db.StringField(unique=True)
     password = db.StringField()
-    registered_serial_numbers = db.ListField(SerialNumber, default=[])
+    registered_serial_numbers = db.ListField(default = [])
     if_admin = db.BooleanField(default=False)
 
     def to_json(self):
@@ -316,14 +316,26 @@ def register_serial_number_to_user():
                 # The serial number is ready to be registered
                 user_id = data['public_id']
                 registration_date = datetime.today().strftime('%Y-%m-%d')
+
+
+
+
+                sn_object.update(registration_user = user_id)
+                sn_object.update(registration_date = registration_date)
+
             
                 print('Adding the serial number to the user data')
                 user = User.objects(public_id = user_id).first()
-                user.registered_serial_numbers = user.registered_serial_numbers + [sn_object.value]
+                
+                sns = user.registered_serial_numbers
+                sns.append(SerialNumber(value = serial_number, registration_user = user_id, registration_date = registration_date, product_id = product_id).to_json())
+                #user.registered_serial_numbers = sns
+                User.objects(public_id = user.public_id).update(set__registered_serial_numbers = sns)
+                
+                #User.objects(public_id = user.public_id).update(set__registered_serial_numbers = [])
+
+                #user.registered_serial_numbers.append(str(sn_object.to_json()))
                 print('About to update...')
-                user.save()
-                #sn_object.update(registration_user = user_id)
-                #sn_object.update(registration_date = registration_date)
                 
                 print('Done updating.')
 
