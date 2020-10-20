@@ -118,7 +118,6 @@ def login_token_required(f):
 def register():
 
     request_content = request.get_json()
-    return jsonify({'content':str(request_content)})
     try:
 
         email = request_content['email']
