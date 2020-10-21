@@ -114,7 +114,7 @@ def login_token_required(f):
 # -------------------------------------------- User API endpoints ----------------------------------
 
 
-@app.route('/api/user/register', methods=['POST'])
+@app.route('/api/user/register/', methods=['POST'])
 def register():
 
     request_content = request.get_json()
@@ -143,13 +143,13 @@ def get_all_users():
     return jsonify({'users': User.objects})
 
 
-@app.route('/api/user/<public_id>', methods=['GET'])
+@app.route('/api/user/<public_id>/', methods=['GET'])
 @admin_token_required
 def get_user_by_id(public_id):
     return jsonify({'user': User.objects(public_id=public_id).first()})
 
 
-@app.route('/api/user/delete_all', methods=['GET'])
+@app.route('/api/user/delete_all/', methods=['GET'])
 @admin_token_required
 def delete_all_users():
     User.drop_collection()
@@ -171,7 +171,7 @@ def delete_user():
 
     return jsonify({'code': 200, 'message': 'ok'})
 
-@app.route('/api/user/bulk/add', methods = ['POST'])
+@app.route('/api/user/bulk/add/', methods = ['POST'])
 def bulk_add_users():
     
     try:
@@ -212,13 +212,13 @@ def bulk_add_users():
 def get_all_serial_numbers():
     return jsonify({'serial_numbers':SerialNumber.objects[:1000]})
 
-@app.route('/api/serial_number/delete', methods = ['GET'])
+@app.route('/api/serial_number/delete/', methods = ['GET'])
 @admin_token_required
 def delete_all_serial_numbers():
     SerialNumber.drop_collection()
     return jsonify({'serial_numbers':SerialNumber.objects})
 
-@app.route('/api/serial_number/<sn>', methods=["GET"])
+@app.route('/api/serial_number/<sn>/', methods=["GET"])
 @login_token_required
 def search_sn(sn):
     serial_object = SerialNumber.objects(value = sn).first()
@@ -227,7 +227,7 @@ def search_sn(sn):
     else:
         return make_response('', 404)
 
-@app.route('/api/serial_number/add', methods = ['POST'])
+@app.route('/api/serial_number/add/', methods = ['POST'])
 @admin_token_required
 def add_serial_number(): # Requires a JSON to be sent
 
@@ -248,7 +248,7 @@ def add_serial_number(): # Requires a JSON to be sent
 
     return jsonify({'code':200, 'message':'ok'})
 
-@app.route('/api/serial_number/bulk/add', methods = ['POST'])
+@app.route('/api/serial_number/bulk/add/', methods = ['POST'])
 def bulk_add_serial_number():
     
     try:
@@ -362,7 +362,7 @@ def register_serial_number_to_user():
 def get_all_products():
     return jsonify(Product.objects)
 
-@app.route('/api/product/<product_id>', methods = ['GET'])
+@app.route('/api/product/<product_id>/', methods = ['GET'])
 @login_token_required
 def get_product_by_id(product_id):
     product_object = Product.objects(product_id = product_id).first()
@@ -371,7 +371,7 @@ def get_product_by_id(product_id):
 
     return jsonify({'code':404, 'message':"Product not found."})
 
-@app.route('/api/product/add', methods = ['POST'])
+@app.route('/api/product/add/', methods = ['POST'])
 def insert_new_product():
     try:
         content = request.get_json()
@@ -391,7 +391,7 @@ def delete_all_products():
     Product.drop_collection()
     return jsonify({'products':Product.objects})
 
-@app.route('/api/product/delete/<product_id>')
+@app.route('/api/product/delete/<product_id>/')
 @admin_token_required
 def delete_product(product_id):
     try:
@@ -407,7 +407,7 @@ def delete_product(product_id):
 
 
 
-@app.route('/api/user/my_products', methods = ['GET'])
+@app.route('/api/user/my_products/', methods = ['GET'])
 @login_token_required
 def get_my_products():
 
@@ -436,10 +436,10 @@ def login():
 
     if not auth or ('email' not in auth.keys()) or ('password' not in auth.keys()):
         return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
-
+   
     email = auth['email']
     password = auth['password']
-
+    print(email, ' ', password)
     user = User.objects(email=email).first()
 
     if not user:
