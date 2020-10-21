@@ -402,6 +402,30 @@ def delete_product(product_id):
         return jsonify({'code':400, 'message':str(e)})
     return jsonify({'code':200})
 
+
+
+
+
+
+@app.route('/api/user/my_products', methods = ['GET'])
+@login_token_required
+def get_my_products():
+
+    if 'x-access-token' not in request.headers:
+        return jsonify({'message': 'Token is missing!'})
+
+    token = request.headers['x-access-token']
+    data = jwt.decode(token, app.config['SECRET_KEY'])
+
+    user = User.objects(public_id = data['public_id']).first()
+
+    registered_products = user.registered_serial_numbers
+ 
+    return jsonify({'products':registered_products})
+
+
+
+
 @app.route('/api/user/login/', methods = ['POST'])
 def login():
 
